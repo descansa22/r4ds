@@ -71,6 +71,7 @@ h <- as.data.frame(diag(4))
 # pista: puedes utilizar rownames, colnames, nrow, ncol, paste0 y sapply
 colnames(h) <- paste0(1:ncol(h), rep("_col", ncol(h)))
 rownames(h) <- paste0(1:nrow(h), rep("_row", nrow(h)))
+rownames(h) <- sapply(rownames(h), function(x) paste0(x, "_row"))
 
 # Ejercicio 11
 # A partir del dataset VADeaths ya cargado en R

@@ -1,0 +1,104 @@
+---
+title: "02_preparacion_datos"
+author: "Nacho Hidalgo"
+date: "2/11/2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Ejercicio Guiado
+
+El ejercicio consiste en extraer datos de los servicios públicos de bicicletas de distintas ciudades, como BiciMAD de Madrid, Vélib' de París, etc.
+
+La documentación de la API está disponible en [citybik](https://api.citybik.es/v2/).
+
+### 1. Redes de bicis por país - Enunciando
+
+Lista la cantidad de redes de bici que hay por país, en forma de data.frame siendo la primera columna el código del país y la segunda el número de redes de bicicletas. Lístado de manera ordenada, de forma que la primera fila sea el país con más redes y el último con menos
+
+
+```{r}
+library(httr)
+# Llamada al servicio y espera a respuesta
+res <- GET("http://api.citybik.es/v2/networks")
+stop_for_status(res)
+
+# Extracción del contenido, de JSON a lista
+info <- content(res)
+
+countrys <- sapply(info$networks, function(x) x$location$country)
+countrys <- as.data.frame(table(countrys), stringsAsFactors = FALSE)
+countrys <- countrys[order( -countrys$Freq),]
+```
+
+
+### 2. Bicis disponibles en una estación de BiciMAD - Enunciando
+
+Crea una función que te devuelva el número de bicis disponibles en una estación de BiciMAD. Cada llamada a la función hará:
+
+1. Una petición para bajarse los datos de la red de BiciMAD
+2. Entre los resultados obtenidos, identificar la estación solicitada mediante el parámetro
+3. Devolver el número de bicis disponibles
+
+Si no encuentra ningún registro por nombre de estación, devolverá NA.
+
+```{r, eval = FALSE}
+
+bicis_disponibles <- function(station) {
+  
+  res <- GET("http://api.citybik.es/v2/networks/bicimad")
+  stop_for_status(res)
+  info <- content(res)
+  
+  stations <- info$network$stations
+
+  stations <- sapply(stations, function(x){ c(name = x$name, free_bikes= x$free_bikes)})
+  stations <- as.data.frame(t(stations), stringsAsFactors = FALSE)
+  stationFreeBikes <- subset(stations, stations$name == station)
+  stationFreeBikes <- stations[which(stations$name == station), ]
+  is.na.data.frame(stationFreeBikes)
+}
+
+bicis_disponibles("dwedw")
+bicis_disponibles("Conde de Casal")
+bicis_disponibles("Valderribas")
+```
+
+
+### 3. Mapa de disponibilidad de BiciMAD - Enunciando
+Pinta en un mapa la disponibilidad (la API devuelve un color por estación, que puede ser: verde, amarillo, rojo o gris) de todas las estaciones de BiciMAD. Aquí tienes un ejemplo de cómo pintar puntos geolocalizados con ggmap, que es un paquete wrapper de la API de Google Maps.
+
+#### Aclaración
+Hay 3 puntos en el mapa que no aparencen, debido al nivel de zoom, si ponemos un nivel de zoom menor, la visualización es mucho peor.
+Si el nivel fuese mayor habria más puntos en el mapa que no se visualizarian.
+
+```{r}
+library(ggmap)
+res <- GET("http://api.citybik.es/v2/networks/bicimad")
+stop_for_status(res)
+info <- content(res)
+
+stations <- info$network$stations
+
+stations <- sapply(stations, function(x){ c(lat = x$latitude, lon = x$longitude, color = x$extra$light)})
+stations <- as.data.frame(t(stations), stringsAsFactors = FALSE)
+stations$lat <- as.numeric(stations$lat)
+stations$lon <- as.numeric(stations$lon)
+
+# Descargo el mapa desde Google Maps
+map.madrid <- get_map( location = as.numeric(geocode('madrid')),
+                       color = "color",
+                       maptype = "roadmap",
+                       zoom = 13)
+
+ggmap(map.madrid) + 
+  geom_point(aes(x = lon, y = lat, color = color), size = 2.5, data = stations) +
+  scale_colour_manual(values = c("green" = "green",
+                                 "yellow" = "yellow",
+                                 "red" = "red",
+                                 "gray" = "gray"))
+
+```
