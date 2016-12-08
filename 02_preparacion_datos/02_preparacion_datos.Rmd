@@ -58,8 +58,8 @@ bicis_disponibles <- function(station) {
   stations <- sapply(stations, function(x){ c(name = x$name, free_bikes= x$free_bikes)})
   stations <- as.data.frame(t(stations), stringsAsFactors = FALSE)
   stationFreeBikes <- subset(stations, stations$name == station)
-  stationFreeBikes <- stations[which(stations$name == station), ]
-  is.na.data.frame(stationFreeBikes)
+  stationFreeBikes <- stations[stations$name == station, ]
+  stationFreeBikes$free_bikes
 }
 
 bicis_disponibles("dwedw")

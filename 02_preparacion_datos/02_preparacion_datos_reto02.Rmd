@@ -1,0 +1,99 @@
+---
+title: "02_preparacion_datos_reto2"
+author: "Nacho Hidalgo"
+date: "3/12/2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Alternativa 1 - Nombres en EEUU
+
+Los datos están disponibles [aquí](https://dl.dropboxusercontent.com/u/10368281/StateNames.csv). Contesta a las siguientes preguntas utilizando el paquete que prefieras: `data.table` o `dplyr`.
+
+_Nota_: si usas dplyr, puedes convertir el dataframe con `tbl_df`, para no imprimir accidentalmente mucha cantidad de datos por pantalla.
+
+# ¿Cuántos registros hay de hombres y cuántos de mujeres?
+```{r}
+library(data.table)
+states.name <- fread("StateNames.csv")
+states.name
+
+states.name[, .(count = .N), by = Gender]
+
+states.name[, lapply(.SD, sum),                    
+           by = .(Gender),          
+           .SDcols = c("Count")]
+
+```
+
+# ¿Cuál es la longitud media de los nombres por año?
+```{r}
+
+states.name[, lapply(.SD, nchar),                    
+           by = .(Year),          
+           .SDcols = c("Name")][
+             , lapply(.SD, mean), 
+             by = .(Year), 
+             .SDcols = c("Name")]
+
+```
+
+
+# ¿Cuál es el nombre más popular de mujer por año a partir del 2000? Ordena el resultado cronológicamente
+
+```{r}
+
+max.name <- states.name[Gender == "F" & Year >= 2000,                  
+           .(n_name = max(Count, na.rm = TRUE)),             
+           by = .(Year)]
+
+max.name1 <- states.name[Gender == "F" & Year >= 2000,                  
+           .(n_name = max(Count, na.rm = TRUE)),             
+           by = .(Year, Name)]
+
+states.name[Gender == "F" & Year >= 2000,                  
+           .(n_name = max(Count, na.rm = TRUE)), by = .(Year, Name)][
+             , max_popular := max(n_name), by = Year][
+             max_popular == n_name, .(Year, Name, n_name)][order(Year, decreasing = TRUE)]
+
+
+```
+
+# Encuentra los 10 nombres más unisex de 2014. Es decir, que la proporción de chicas / chicos sea lo más cercana al 50% posible
+
+```{r}
+
+name.unisex <- states.name[Year == 2014,
+                           lapply(.SD, sum),                    
+                           by = .(Name, Gender),          
+                           .SDcols = c("Count")][,
+                             sum_name := sum(Count),
+                             by = Name][,
+                                        prop := (sum_name/Count), 
+                                        by = Name][,
+                                                   c("prop_pos", "prop_neg") := .(
+                                                     shift(prop, n = 1, type = "lag"), 
+                                                     shift(prop, n = 1, type = "lead")
+                                                     ), 
+                                                   by = Name]
+
+
+```
+
+# ¡Un nombre hipster! Extrae el conteo del nombre Leo cada 5 años (p.ej. en los años múltiplos de 5), mostrando el agregado de ese año
+```{r}
+
+states.name[Name == "Leo" & Year %% 5 == 0, 
+                           lapply(.SD, sum),                    
+                           by = .(Year),          
+                           .SDcols = c("Count")][
+                             order(Year)][, agred := (Count),
+                                          by = Count][
+                                            ,.(Count, agred = (Count + shift(agred, 1L, NA, "lead", TRUE))), 
+                                            by = Year]
+
+```
+
